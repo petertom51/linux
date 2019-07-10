@@ -408,6 +408,15 @@
 					sio_regs: regs {
 						compatible = "aspeed,bmc-misc";
 					};
+
+					mbox: mbox@180 {
+						compatible = "aspeed,ast2400-mbox";
+						reg = <0x180 0x5c>;
+						interrupts = <46>;
+						#mbox-cells = <1>;
+						clocks = <&syscon ASPEED_CLK_GATE_LCLK>;
+						status = "disabled";
+					};
 				};
 			};
 
