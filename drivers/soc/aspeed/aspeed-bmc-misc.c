@@ -15,6 +15,7 @@ struct aspeed_bmc_ctrl {
 	u32 offset;
 	u32 mask;
 	u32 shift;
+	bool read_only;
 	struct regmap *map;
 	struct kobj_attribute attr;
 };
@@ -54,6 +55,8 @@ static int aspeed_bmc_misc_parse_dt_child(struct device_node *child,
 	rc = of_property_read_u32(child, "bit-shift", &ctrl->shift);
 	if (rc < 0)
 		return rc;
+
+	ctrl->read_only = of_property_read_bool(child, "read-only");
 
 	ctrl->mask <<= ctrl->shift;
 
@@ -116,6 +119,10 @@ static ssize_t aspeed_bmc_misc_store(struct kobject *kobj,
 		return rc;
 
 	ctrl = container_of(attr, struct aspeed_bmc_ctrl, attr);
+
+	if (ctrl->read_only)
+		return -EROFS;
+
 	val <<= ctrl->shift;
 	rc = regmap_update_bits(ctrl->map, ctrl->offset, ctrl->mask, val);
 
