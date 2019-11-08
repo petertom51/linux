@@ -87,7 +87,11 @@
  * These share bit definitions, so use the same values for the enable &
  * status bits.
  */
+#if defined(CONFIG_MACH_ASPEED_G6)
+#define ASPEED_I2CD_INTR_SLAVE_ADDR_RECEIVED_PENDING	BIT(29)
+#else
 #define ASPEED_I2CD_INTR_SLAVE_ADDR_RECEIVED_PENDING	BIT(30)
+#endif
 #define ASPEED_I2CD_INTR_SLAVE_INACTIVE_TIMEOUT		BIT(15)
 #define ASPEED_I2CD_INTR_SDA_DL_TIMEOUT			BIT(14)
 #define ASPEED_I2CD_INTR_BUS_RECOVER_DONE		BIT(13)
@@ -118,6 +122,11 @@
 		 ASPEED_I2CD_INTR_RX_DONE |				       \
 		 ASPEED_I2CD_INTR_TX_NAK |				       \
 		 ASPEED_I2CD_INTR_TX_ACK)
+#define ASPEED_I2CD_INTR_STATUS_MASK					       \
+		(ASPEED_I2CD_INTR_SLAVE_ADDR_RECEIVED_PENDING |		       \
+		 ASPEED_I2CD_INTR_GCALL_ADDR |				       \
+		 ASPEED_I2CD_INTR_SLAVE_MATCH |				       \
+		 ASPEED_I2CD_INTR_ALL)
 
 /* 0x14 : I2CD Command/Status Register   */
 #define ASPEED_I2CD_SCL_LINE_STS			BIT(18)
@@ -1065,6 +1074,11 @@ static irqreturn_t aspeed_i2c_bus_irq(int irq, void *dev_id)
 	writel(irq_received & ~ASPEED_I2CD_INTR_RX_DONE,
 	       bus->base + ASPEED_I2C_INTR_STS_REG);
 	readl(bus->base + ASPEED_I2C_INTR_STS_REG);
+	/*
+	 * AST2600 makes a garbage interrupt which is decribed as 'reserved'
+         * in datasheet so filter them out.
+	 */
+	irq_received &= ASPEED_I2CD_INTR_STATUS_MASK;
 	irq_remaining = irq_received;
 
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
