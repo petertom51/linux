@@ -397,25 +397,16 @@ static int peci_cmd_xfer(struct peci_adapter *adapter, void *vmsg)
 		case PECI_WRPCICFG_CMD:
 		case PECI_WRPCICFGLOCAL_CMD:
 		case PECI_WRENDPTCFG_CMD:
-			/* Check if the AW FCS byte is already provided */
+			/*
+			 * The sender may not have supplied the AW FCS byte.
+			 * Unconditionally add an Assured Write Frame Check
+			 * Sequence byte
+			 */
 			ret = peci_aw_fcs(msg, 2 + msg->tx_len, &aw_fcs);
 			if (ret)
 				break;
 
-			if (msg->tx_buf[msg->tx_len - 1] != (0x80 ^ aw_fcs)) {
-				/*
-				 * Add an Assured Write Frame Check Sequence
-				 * byte and increment the tx_len to include
-				 * the new byte.
-				 */
-				msg->tx_len++;
-				ret = peci_aw_fcs(msg, 2 + msg->tx_len,
-						  &aw_fcs);
-				if (ret)
-					break;
-
-				msg->tx_buf[msg->tx_len - 1] = 0x80 ^ aw_fcs;
-			}
+			msg->tx_buf[msg->tx_len - 1] = 0x80 ^ aw_fcs;
 
 			ret = peci_xfer_with_retries(adapter, msg, true);
 			break;
