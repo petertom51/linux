@@ -138,8 +138,13 @@ static long peci_dev_ioctl(struct file *file, uint iocmd, ulong arg)
 		xmsg->tx_len = uxmsg.tx_len;
 		xmsg->rx_len = uxmsg.rx_len;
 
+		/*
+		 * Send the command and copy the results back to user space on
+		 * either success or timeout to provide the completion code to
+		 * the caller.
+		 */
 		ret = peci_command(peci_dev->adapter, cmd, xmsg);
-		if (!ret && xmsg->rx_len &&
+		if ((!ret || ret == -ETIMEDOUT) && xmsg->rx_len &&
 		    copy_to_user((__u8 __user *)uxmsg.rx_buf, xmsg->rx_buf,
 				 xmsg->rx_len))
 			ret = -EFAULT;
@@ -153,6 +158,11 @@ static long peci_dev_ioctl(struct file *file, uint iocmd, ulong arg)
 			break;
 		}
 
+		/*
+		 * Send the command and copy the results back to user space on
+		 * either success or timeout to provide the completion code to
+		 * the caller.
+		 */
 		ret = peci_command(peci_dev->adapter, cmd, msg);
 		if ((!ret || ret == -ETIMEDOUT) &&
 		    copy_to_user(umsg, msg, msg_len))
