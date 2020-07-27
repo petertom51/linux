@@ -1059,7 +1059,7 @@ static int peci_cmd_wr_end_pt_cfg(struct peci_adapter *adapter, void *vmsg)
 		return -EINVAL;
 	}
 
-	ret = peci_xfer_with_retries(adapter, msg, false);
+	ret = peci_xfer_with_retries(adapter, msg, true);
 
 out:
 	umsg->cc = msg->rx_buf[0];
