@@ -1446,6 +1446,12 @@ static const struct pmbus_limit_attr vin_limit_attrs[] = {
 	}, {
 		.reg = PMBUS_VIRT_RESET_VIN_HISTORY,
 		.attr = "reset_history",
+	}, {
+		.reg = PMBUS_MFR_VIN_MIN,
+		.attr = "rated_min",
+	}, {
+		.reg = PMBUS_MFR_VIN_MAX,
+		.attr = "rated_max",
 	},
 };
 
@@ -1509,7 +1515,13 @@ static const struct pmbus_limit_attr vout_limit_attrs[] = {
 	}, {
 		.reg = PMBUS_VIRT_RESET_VOUT_HISTORY,
 		.attr = "reset_history",
-	}
+	}, {
+		.reg = PMBUS_MFR_VOUT_MIN,
+		.attr = "rated_min",
+	}, {
+		.reg = PMBUS_MFR_VOUT_MAX,
+		.attr = "rated_max",
+	},
 };
 
 static const struct pmbus_sensor_attr voltage_attributes[] = {
@@ -1581,7 +1593,10 @@ static const struct pmbus_limit_attr iin_limit_attrs[] = {
 	}, {
 		.reg = PMBUS_VIRT_RESET_IIN_HISTORY,
 		.attr = "reset_history",
-	}
+	}, {
+		.reg = PMBUS_MFR_IIN_MAX,
+		.attr = "rated_max",
+	},
 };
 
 static const struct pmbus_limit_attr iout_limit_attrs[] = {
@@ -1615,7 +1630,10 @@ static const struct pmbus_limit_attr iout_limit_attrs[] = {
 	}, {
 		.reg = PMBUS_VIRT_RESET_IOUT_HISTORY,
 		.attr = "reset_history",
-	}
+	}, {
+		.reg = PMBUS_MFR_IOUT_MAX,
+		.attr = "rated_max",
+	},
 };
 
 static const struct pmbus_sensor_attr current_attributes[] = {
@@ -1666,7 +1684,10 @@ static const struct pmbus_limit_attr pin_limit_attrs[] = {
 	}, {
 		.reg = PMBUS_VIRT_RESET_PIN_HISTORY,
 		.attr = "reset_history",
-	}
+	}, {
+		.reg = PMBUS_MFR_PIN_MAX,
+		.attr = "rated_max",
+	},
 };
 
 static const struct pmbus_limit_attr pout_limit_attrs[] = {
@@ -1700,7 +1721,10 @@ static const struct pmbus_limit_attr pout_limit_attrs[] = {
 	}, {
 		.reg = PMBUS_VIRT_RESET_POUT_HISTORY,
 		.attr = "reset_history",
-	}
+	}, {
+		.reg = PMBUS_MFR_POUT_MAX,
+		.attr = "rated_max",
+	},
 };
 
 static const struct pmbus_sensor_attr power_attributes[] = {
@@ -1764,7 +1788,10 @@ static const struct pmbus_limit_attr temp_limit_attrs[] = {
 	}, {
 		.reg = PMBUS_VIRT_RESET_TEMP_HISTORY,
 		.attr = "reset_history",
-	}
+	}, {
+		.reg = PMBUS_MFR_MAX_TEMP_1,
+		.attr = "rated_max",
+	},
 };
 
 static const struct pmbus_limit_attr temp_limit_attrs2[] = {
@@ -1802,7 +1829,10 @@ static const struct pmbus_limit_attr temp_limit_attrs2[] = {
 	}, {
 		.reg = PMBUS_VIRT_RESET_TEMP2_HISTORY,
 		.attr = "reset_history",
-	}
+	}, {
+		.reg = PMBUS_MFR_MAX_TEMP_2,
+		.attr = "rated_max",
+	},
 };
 
 static const struct pmbus_limit_attr temp_limit_attrs3[] = {
@@ -1828,7 +1858,10 @@ static const struct pmbus_limit_attr temp_limit_attrs3[] = {
 		.attr = "crit",
 		.alarm = "crit_alarm",
 		.sbit = PB_TEMP_OT_FAULT,
-	}
+	}, {
+		.reg = PMBUS_MFR_MAX_TEMP_3,
+		.attr = "rated_max",
+	},
 };
 
 static const struct pmbus_sensor_attr temp_attributes[] = {
