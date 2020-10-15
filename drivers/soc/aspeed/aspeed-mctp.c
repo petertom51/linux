@@ -390,9 +390,10 @@ static void aspeed_mctp_rx_tasklet(unsigned long data)
 		 * the whole packet to userspace in network order
 		 */
 		for (i = 0; i < PCIE_VDM_HDR_SIZE_DW; i++)
-			hdr[i] = swab32(hdr[i]);
+			rx_packet->data.hdr[i] = swab32(hdr[i]);
 
-		memcpy(&rx_packet->data, hdr, sizeof(rx_packet->data));
+		memcpy(&rx_packet->data.payload, hdr + PCIE_VDM_HDR_SIZE_DW,
+		       sizeof(rx_packet->data) - sizeof(rx_packet->data.hdr));
 
 		*hdr = 0;
 		rx->wr_ptr = (rx->wr_ptr + 1) % RX_PACKET_COUNT;
