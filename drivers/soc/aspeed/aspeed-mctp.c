@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2020, Intel Corporation.
 
+#include <linux/bitfield.h>
 #include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
@@ -123,8 +124,15 @@
 /* FIXME: ast2600 supports variable max transmission unit */
 #define ASPEED_MCTP_MTU 64
 
+/* PCIe header definitions */
+#define PCIE_VDM_HDR_REQUESTER_BDF_DW 1
+#define PCIE_VDM_HDR_REQUESTER_BDF_MASK GENMASK(31, 16)
+
 #define PCIE_VDM_HDR_SIZE_DW (ASPEED_MCTP_PCIE_VDM_HDR_SIZE / 4)
 #define PCIE_VDM_DATA_SIZE_DW (ASPEED_MCTP_MTU / 4)
+
+#define PCIE_MCTP_MIN_PACKET_SIZE (ASPEED_MCTP_PCIE_VDM_HDR_SIZE + 4)
+
 struct mctp_pcie_packet_data {
 	u32 hdr[PCIE_VDM_HDR_SIZE_DW];
 	u32 payload[PCIE_VDM_DATA_SIZE_DW];
@@ -177,7 +185,6 @@ struct mctp_client {
 	struct ptr_ring tx_queue;
 	struct ptr_ring rx_queue;
 	struct list_head link;
-	bool disconnected;
 };
 
 #define TX_CMD_BUF_SIZE \
@@ -458,11 +465,6 @@ static int aspeed_mctp_open(struct inode *inode, struct file *file)
 	struct mctp_client *client;
 	int ret;
 
-	if (priv->pcie.bdf == 0) {
-		ret = -ENODEV;
-		goto out;
-	}
-
 	client = aspeed_mctp_client_alloc(priv);
 	if (!client) {
 		ret = -ENOMEM;
@@ -523,25 +525,25 @@ static ssize_t aspeed_mctp_read(struct file *file, char __user *buf,
 	struct mctp_pcie_packet *rx_packet;
 	size_t packet_sz = sizeof(rx_packet->data);
 
-	if (READ_ONCE(client->disconnected))
+	if (count < PCIE_MCTP_MIN_PACKET_SIZE)
+		return -EINVAL;
+
+	if (priv->pcie.bdf == 0)
 		return -EIO;
 
-	if (buf && count > 0) {
-		if (count > packet_sz)
-			count = packet_sz;
+	if (count > packet_sz)
+		count = packet_sz;
 
-		rx_packet = ptr_ring_consume_bh(&client->rx_queue);
-		if (!rx_packet)
-			return -EAGAIN;
+	rx_packet = ptr_ring_consume_bh(&client->rx_queue);
+	if (!rx_packet)
+		return -EAGAIN;
 
-		if (copy_to_user(buf, &rx_packet->data, count)) {
-			dev_err(priv->dev, "copy to user failed\n");
-			packet_free(rx_packet);
-			return -EFAULT;
-		}
-
-		packet_free(rx_packet);
+	if (copy_to_user(buf, &rx_packet->data, count)) {
+		dev_err(priv->dev, "copy to user failed\n");
+		count = -EFAULT;
 	}
+
+	packet_free(rx_packet);
 
 	return count;
 }
@@ -552,9 +554,16 @@ static ssize_t aspeed_mctp_write(struct file *file, const char __user *buf,
 	struct mctp_client *client = file->private_data;
 	struct aspeed_mctp *priv = client->priv;
 	struct mctp_pcie_packet *tx_packet;
+	u16 bdf = priv->pcie.bdf;
 	int ret, i;
 
-	if (READ_ONCE(client->disconnected))
+	if (count < PCIE_MCTP_MIN_PACKET_SIZE)
+		return -EINVAL;
+
+	if (count > sizeof(tx_packet->data))
+		return -ENOSPC;
+
+	if (bdf == 0)
 		return -EIO;
 
 	tx_packet = packet_alloc(GFP_KERNEL);
@@ -563,31 +572,29 @@ static ssize_t aspeed_mctp_write(struct file *file, const char __user *buf,
 		goto out;
 	}
 
-	if (buf && count > 0) {
-		if (count > sizeof(tx_packet->data)) {
-			ret = -ENOSPC;
-			goto out_packet;
-		}
-
-		if (copy_from_user(&tx_packet->data, buf, count)) {
-			dev_err(priv->dev, "copy from user failed\n");
-			ret = -EFAULT;
-			goto out_packet;
-		}
-		tx_packet->size = count;
-		/*
-		 * XXX: HW expects VDM header in little endian, swap to let
-		 * userspace use network order for the whole packet
-		 */
-		for (i = 0; i < PCIE_VDM_HDR_SIZE_DW; i++)
-			tx_packet->data.hdr[i] = swab32(tx_packet->data.hdr[i]);
-
-		ret = ptr_ring_produce_bh(&client->tx_queue, tx_packet);
-		if (ret)
-			goto out_packet;
-
-		tasklet_hi_schedule(&priv->tx.tasklet);
+	if (copy_from_user(&tx_packet->data, buf, count)) {
+		dev_err(priv->dev, "copy from user failed\n");
+		ret = -EFAULT;
+		goto out_packet;
 	}
+	tx_packet->size = count;
+
+	/* Update PCIE header with requester BDF */
+	be32p_replace_bits(&tx_packet->data.hdr[PCIE_VDM_HDR_REQUESTER_BDF_DW],
+			   bdf, PCIE_VDM_HDR_REQUESTER_BDF_MASK);
+
+	/*
+	 * XXX: HW expects VDM header in little endian, swap to let
+	 * userspace use network order for the whole packet
+	 */
+	for (i = 0; i < PCIE_VDM_HDR_SIZE_DW; i++)
+		tx_packet->data.hdr[i] = swab32(tx_packet->data.hdr[i]);
+
+	ret = ptr_ring_produce_bh(&client->tx_queue, tx_packet);
+	if (ret)
+		goto out_packet;
+
+	tasklet_hi_schedule(&priv->tx.tasklet);
 
 	return count;
 
@@ -772,27 +779,8 @@ static void aspeed_mctp_reset_work(struct work_struct *work)
 	struct aspeed_mctp *priv = container_of(work, typeof(*priv),
 						pcie.rst_dwork.work);
 
-	/*
-	 * Client "disconnection" is permanent to avoid forcing the user to use
-	 * uevents in order to monitor for reset. Even if no reads/writes are
-	 * issued during pci reset, userspace will still get -EIO afterwards,
-	 * forcing it to reopen and check the BDF (which may have potentially
-	 * changed after reset). Uevents can be used to avoid looping in open()
-	 */
 	if (priv->pcie.need_uevent) {
 		struct kobject *kobj = &aspeed_mctp_miscdev.this_device->kobj;
-		struct mctp_client *client;
-
-		spin_lock_bh(&priv->clients_lock);
-		client = list_first_entry_or_null(&priv->clients,
-						  typeof(*client), link);
-		/*
-		 * Here, we're only updating the "disconnected" flag under
-		 * spinlock, meaning that we can skip taking the refcount
-		 */
-		if (client)
-			WRITE_ONCE(client->disconnected, true);
-		spin_unlock_bh(&priv->clients_lock);
 
 		aspeed_mctp_send_pcie_uevent(kobj, false);
 		priv->pcie.need_uevent = false;
