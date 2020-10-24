@@ -9,12 +9,14 @@
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/io.h>
+#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/spi-nor.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
@@ -217,9 +219,15 @@ struct aspeed_smc_controller {
 	u32 ahb_window_size;			/* full mapping window size */
 
 	unsigned long	clk_frequency;
+	unsigned int ps_alert_gpio;
 
 	struct aspeed_smc_chip *chips[];	/* pointers to attached chips */
 };
+
+static unsigned long aspeed_smc_flags = 0;
+#define FLAG_DEFER_WRITE		0
+#define WRITE_DEFER_MSEC		100 /* 100ms */
+#define WRITE_DEFER_MAX_COUNT		100 /* 100 x 100 = 10secs */
 
 #define ASPEED_SPI_DEFAULT_FREQ		50000000
 
@@ -412,6 +420,17 @@ static int aspeed_smc_write_to_ahb(void __iomem *dst, const void *buf,
 				   size_t len)
 {
 	size_t offset = 0;
+	int defer_cnt = 0;
+
+	while (test_bit(FLAG_DEFER_WRITE, &aspeed_smc_flags)) {
+		pr_warn("%s deferring write, count: %d\n", DEVICE_NAME,
+			defer_cnt);
+		msleep(WRITE_DEFER_MSEC);
+		if (defer_cnt++ > WRITE_DEFER_MAX_COUNT) {
+			clear_bit(FLAG_DEFER_WRITE, &aspeed_smc_flags);
+			break;
+		}
+	}
 
 	if (IS_ALIGNED((uintptr_t)dst, sizeof(uintptr_t)) &&
 	    IS_ALIGNED((uintptr_t)buf, sizeof(uintptr_t))) {
@@ -1369,6 +1388,21 @@ static int aspeed_smc_setup_flash(struct aspeed_smc_controller *controller,
 	return ret;
 }
 
+static irqreturn_t aspeed_smc_ps_alert_irq(int irq, void *arg)
+{
+	struct aspeed_smc_controller *controller = arg;
+
+	if (gpio_get_value(controller->ps_alert_gpio)) {
+		clear_bit(FLAG_DEFER_WRITE, &aspeed_smc_flags);
+		dev_warn(controller->dev, "clear FLAG_DEFER_WRITE\n");
+	} else {
+		set_bit(FLAG_DEFER_WRITE, &aspeed_smc_flags);
+		dev_warn(controller->dev, "set FLAG_DEFER_WRITE\n");
+	}
+
+	return IRQ_HANDLED;
+}
+
 static int aspeed_smc_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1379,6 +1413,7 @@ static int aspeed_smc_probe(struct platform_device *pdev)
 	struct clk *clk;
 	struct resource *res;
 	int ret;
+	int irq;
 
 	match = of_match_device(aspeed_smc_matches, &pdev->dev);
 	if (!match || !match->data)
@@ -1414,6 +1449,32 @@ static int aspeed_smc_probe(struct platform_device *pdev)
 		return PTR_ERR(clk);
 	controller->clk_frequency = clk_get_rate(clk);
 	devm_clk_put(&pdev->dev, clk);
+
+	controller->ps_alert_gpio = of_get_named_gpio(np, "ps-alert-gpio", 0);
+	if (!gpio_is_valid(controller->ps_alert_gpio)) {
+		dev_err(dev, "No valid ps-alert-gpio\n");
+		ret = controller->ps_alert_gpio;
+		return ret;
+	}
+
+	ret = devm_gpio_request_one(dev, controller->ps_alert_gpio,
+				    GPIOF_DIR_IN, "ps-alert-gpio");
+	if (ret) {
+		dev_err(dev, "request gpio failed %d\n", ret);
+		return ret;
+	}
+
+	irq = platform_get_irq(pdev, 1);
+	if (irq < 0)
+		return irq;
+
+	ret = devm_request_irq(&pdev->dev, irq, aspeed_smc_ps_alert_irq,
+			       IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			       "ps-alert-irq", controller);
+	if (ret) {
+		dev_err(dev, "request irq failed %d\n", ret);
+		return ret;
+	}
 
 	ret = aspeed_smc_setup_flash(controller, np, res);
 	if (ret)
