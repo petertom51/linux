@@ -593,7 +593,7 @@ static int fsi_spi_probe(struct device *dev)
 		ctx->fsi = fsi;
 		ctx->base = base + SPI_FSI_BASE;
 
-		if (of_property_read_bool(np, "fsi2spi,restricted")) {
+		if (of_device_is_compatible(np, "ibm,fsi2spi-restricted")) {
 			ctx->restricted = true;
 			ctx->max_xfr_size = SPI_FSI_MAX_XFR_SIZE_RESTRICTED;
 		} else {

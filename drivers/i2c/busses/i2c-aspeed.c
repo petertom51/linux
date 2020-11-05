@@ -87,6 +87,7 @@
  * These share bit definitions, so use the same values for the enable &
  * status bits.
  */
+#define ASPEED_I2CD_INTR_RECV_MASK			0xf000ffff
 #if defined(CONFIG_MACH_ASPEED_G6)
 #define ASPEED_I2CD_INTR_SLAVE_ADDR_RECEIVED_PENDING	BIT(29)
 #else
@@ -1077,11 +1078,7 @@ static irqreturn_t aspeed_i2c_bus_irq(int irq, void *dev_id)
 	writel(irq_received & ~ASPEED_I2CD_INTR_RX_DONE,
 	       bus->base + ASPEED_I2C_INTR_STS_REG);
 	readl(bus->base + ASPEED_I2C_INTR_STS_REG);
-	/*
-	 * AST2600 makes a garbage interrupt which is decribed as 'reserved'
-         * in datasheet so filter them out.
-	 */
-	irq_received &= ASPEED_I2CD_INTR_STATUS_MASK;
+	irq_received &= ASPEED_I2CD_INTR_RECV_MASK;
 	irq_remaining = irq_received;
 
 #if IS_ENABLED(CONFIG_I2C_SLAVE)

@@ -4,6 +4,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/nuvoton,npcm7xx-clock.h>
+#include <dt-bindings/reset/nuvoton,npcm7xx-reset.h>
 #include <dt-bindings/gpio/gpio.h>
 
 / {
@@ -113,6 +114,12 @@
 		interrupt-parent = <&gic>;
 		ranges;
 
+		rstc: rstc@f0801000 {
+			compatible = "nuvoton,npcm750-reset";
+			reg = <0xf0801000 0x70>;
+			#reset-cells = <2>;
+		};
+
 		clk: clock-controller@f0801000 {
 			compatible = "nuvoton,npcm750-clk", "syscon";
 			#clock-cells = <1>;
@@ -152,6 +159,7 @@
 					<GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk NPCM7XX_CLK_AHB>;
 			clock-names = "clk_emc";
+			resets = <&rstc NPCM7XX_RESET_IPSRST1 NPCM7XX_RESET_EMC1>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&r1_pins
 					&r1err_pins
@@ -230,10 +238,10 @@
 			compatible = "nuvoton,npcm750-fiu";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0xfb000000 0x1000>, <0x80000000 0x10000000>;
+			reg = <0xfb000000 0x1000>;
 			reg-names = "control", "memory";
-			clocks = <&clk NPCM7XX_CLK_AHB>;
-			clock-names = "clk_ahb";
+			clocks = <&clk NPCM7XX_CLK_SPI0>;
+			clock-names = "clk_spi0";
 			status = "disabled";
 		};
 
@@ -241,10 +249,10 @@
 			compatible = "nuvoton,npcm750-fiu";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0xc0000000 0x1000>, <0xA0000000 0x20000000>;
+			reg = <0xc0000000 0x1000>;
 			reg-names = "control", "memory";
-			clocks = <&clk NPCM7XX_CLK_AHB>;
-			clock-names = "clk_ahb";
+			clocks = <&clk NPCM7XX_CLK_SPI3>;
+			clock-names = "clk_spi3";
 			pinctrl-names = "default";
 			pinctrl-0 = <&spi3_pins>;
 			status = "disabled";
@@ -254,10 +262,10 @@
 			compatible = "nuvoton,npcm750-fiu";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0xfb001000 0x1000>, <0xf8000000 0x2000000>;
+			reg = <0xfb001000 0x1000>;
 			reg-names = "control", "memory";
-			clocks = <&clk NPCM7XX_CLK_AHB>;
-			clock-names = "clk_ahb";
+			clocks = <&clk NPCM7XX_CLK_SPIX>;
+			clock-names = "clk_spix";
 			status = "disabled";
 		};
 
@@ -380,6 +388,7 @@
 				interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clk NPCM7XX_CLK_APB5>;
 				clock-names = "clk_apb5";
+				resets = <&rstc NPCM7XX_RESET_IPSRST2 NPCM7XX_RESET_PSPI1>;
 				status = "disabled";
 			};
 
@@ -393,6 +402,7 @@
 				interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clk NPCM7XX_CLK_APB5>;
 				clock-names = "clk_apb5";
+				resets = <&rstc NPCM7XX_RESET_IPSRST2 NPCM7XX_RESET_PSPI2>;
 				status = "disabled";
 			};
 
@@ -476,6 +486,7 @@
 				reg = <0xc000 0x8>;
 				interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clk NPCM7XX_CLK_ADC>;
+				resets = <&rstc NPCM7XX_RESET_IPSRST1 NPCM7XX_RESET_ADC>;
 				status = "disabled";
 			};
 

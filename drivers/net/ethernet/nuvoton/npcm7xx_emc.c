@@ -1752,7 +1752,7 @@ static void get_mac_address(struct net_device *dev)
 
 	mac_address = of_get_mac_address(np);
 
-	if (mac_address != 0)
+	if (!IS_ERR(mac_address))
 		ether_addr_copy(dev->dev_addr, mac_address);
 
 	if (is_valid_ether_addr(dev->dev_addr)) {
