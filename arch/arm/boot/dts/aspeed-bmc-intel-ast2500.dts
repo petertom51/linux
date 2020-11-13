@@ -3,7 +3,6 @@
 #include "aspeed-g5.dtsi"
 #include <dt-bindings/gpio/aspeed-gpio.h>
 #include <dt-bindings/i2c/i2c.h>
-#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	model = "Intel AST2500 BMC";
@@ -133,10 +132,6 @@
 };
 
 &fmc {
-	/delete-property/ interrupts;
-	interrupts-extended = <&vic 19>,
-			      <&gpio ASPEED_GPIO(AA, 1) IRQ_TYPE_EDGE_BOTH>;
-	ps-alert-gpio = <&gpio ASPEED_GPIO(AA, 1) GPIO_ACTIVE_HIGH>;
 	status = "okay";
 	flash@0 {
 		status = "okay";
@@ -230,7 +225,7 @@
 	/*X0-X7*/	"","","","","","","","",
 	/*Y0-Y7*/	"SIO_S3","SIO_S5","","SIO_ONCONTROL","","","","",
 	/*Z0-Z7*/	"","SIO_POWER_GOOD","","","","","","",
-	/*AA0-AA7*/	"P3VBAT_BRIDGE_EN","IRQ_SML1_PMBUS_BMC_ALERT_N","","","PREQ_N","TCK_MUX_SEL","SMI","POST_COMPLETE",
+	/*AA0-AA7*/	"P3VBAT_BRIDGE_EN","","","","PREQ_N","TCK_MUX_SEL","SMI","POST_COMPLETE",
 	/*AB0-AB7*/	"","NMI_BUTTON","ID_BUTTON","PS_PWROK","","","","",
 	/*AC0-AC7*/	"","","","","","","","";
 };
