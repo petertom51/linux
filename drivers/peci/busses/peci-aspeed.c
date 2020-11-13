@@ -452,9 +452,10 @@ static int aspeed_peci_remove(struct platform_device *pdev)
 {
 	struct aspeed_peci *priv = dev_get_drvdata(&pdev->dev);
 
+	peci_del_adapter(priv->adapter);
+	complete(&priv->xfer_complete);
 	clk_disable_unprepare(priv->clk);
 	reset_control_assert(priv->rst);
-	peci_del_adapter(priv->adapter);
 	of_node_put(priv->adapter->dev.of_node);
 
 	return 0;
