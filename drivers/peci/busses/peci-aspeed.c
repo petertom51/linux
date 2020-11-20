@@ -345,7 +345,7 @@ static int aspeed_peci_init_ctrl(struct aspeed_peci *priv)
 
 	clk_divisor = clk_get_rate(priv->clk) / clk_freq;
 
-	while ((clk_divisor >> 1) && (clk_div_val < ASPEED_PECI_CLK_DIV_MAX))
+	while ((clk_divisor >>= 1) && (clk_div_val < ASPEED_PECI_CLK_DIV_MAX))
 		clk_div_val++;
 	priv->clk_div_val = clk_div_val;
 
